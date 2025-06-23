@@ -4,7 +4,7 @@ import cron from 'node-cron';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch'; // ✅ ACTOR ID, not a task
+const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch';
 
 let lastVideoId = null;
 
@@ -19,13 +19,21 @@ async function checkTikTok() {
     );
 
     const video = response.data?.[0];
+
     if (!video) {
       console.log('⚠️ No videos returned from Apify.');
       return;
     }
 
-    const videoId = video.id;
-    const videoUrl = video.videoUrl;
+    console.log('🔍 Apify video object:', video);
+
+    const videoId = video.id || video.itemId || video.video_id;
+    const videoUrl = video.shareUrl || video.videoUrl || `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${videoId}`;
+
+    if (!videoUrl || !videoId) {
+      console.log('⚠️ Missing videoUrl or videoId.');
+      return;
+    }
 
     if (videoId !== lastVideoId) {
       lastVideoId = videoId;
@@ -42,6 +50,5 @@ async function checkTikTok() {
   }
 }
 
-// Run every 5 minutes
 cron.schedule('*/5 * * * *', checkTikTok);
 checkTikTok();
