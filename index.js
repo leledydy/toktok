@@ -1,6 +1,6 @@
 import axios from 'axios';
 import cron from 'node-cron';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio'; // ✅ CORRECT
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
