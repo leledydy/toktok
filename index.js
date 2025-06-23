@@ -1,5 +1,6 @@
 import axios from 'axios';
 import cron from 'node-cron';
+import * as cheerio from 'cheerio';
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
@@ -8,28 +9,39 @@ let lastVideoId = null;
 
 async function checkTikTok() {
   try {
-    const url = `https://m.tiktok.com/api/post/item_list/?username=${TIKTOK_USERNAME}&count=1`;
-    const { data } = await axios.get(url, {
+    const profileUrl = `https://www.tiktok.com/@${TIKTOK_USERNAME}`;
+
+    const { data: html } = await axios.get(profileUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+        'Referer': 'https://www.google.com/',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
     });
 
-    const video = data?.itemList?.[0];
-    if (!video) {
-      console.log("⚠️ No TikTok videos found.");
+    const $ = cheerio.load(html);
+    const firstVideoLink = $('a[href*="/video/"]').attr('href');
+
+    if (!firstVideoLink) {
+      console.log('⚠️ No video links found on profile.');
       return;
     }
 
-    const videoId = video.id || video.id_str || video.item_id;
-    const videoUrl = `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${videoId}`;
+    const fullVideoUrl = `https://www.tiktok.com${firstVideoLink}`;
+    const videoId = fullVideoUrl.split('/video/')[1]?.split('?')[0];
+
+    if (!videoId) {
+      console.log('⚠️ Failed to extract video ID.');
+      return;
+    }
 
     if (videoId !== lastVideoId) {
       lastVideoId = videoId;
-      console.log('➡️ New TikTok:', videoUrl);
+      console.log('➡️ New TikTok:', fullVideoUrl);
+
       await axios.post(DISCORD_WEBHOOK_URL, {
-        content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`,
+        content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${fullVideoUrl}`,
       });
     } else {
       console.log('✔️ No new TikToks.');
@@ -39,8 +51,5 @@ async function checkTikTok() {
   }
 }
 
-// Run every 5 minutes
 cron.schedule('*/5 * * * *', checkTikTok);
-
-// Run once on startup
 checkTikTok();
