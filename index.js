@@ -4,11 +4,20 @@ import pg from 'pg';
 
 const { Client } = pg;
 
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch';
 const DATABASE_URL = process.env.DATABASE_URL;
+
+const ACCOUNTS = [
+  {
+    username: process.env.TIKTOK_USERNAME_1,
+    webhook: process.env.DISCORD_WEBHOOK_URL_1
+  },
+  {
+    username: process.env.TIKTOK_USERNAME_2,
+    webhook: process.env.DISCORD_WEBHOOK_URL_2
+  }
+];
 
 const db = new Client({ connectionString: DATABASE_URL });
 
@@ -40,53 +49,61 @@ async function setLastVideoId(username, videoId) {
   );
 }
 
-async function checkTikTok() {
+async function checkTikTokForAccount({ username, webhook }) {
   try {
     const now = Date.now();
     const response = await axios.post(
       `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
       {
-        profiles: [`https://www.tiktok.com/@${TIKTOK_USERNAME}`],
+        profiles: [`https://www.tiktok.com/@${username}`],
         maxVideos: 1,
-        customId: `check-${now}`
+        customId: `check-${username}-${now}`
       }
     );
 
     const video = response.data?.[0];
     if (!video) {
-      console.log('⚠️ No videos returned from Apify.');
+      console.log(`⚠️ No videos found for @${username}`);
       return;
     }
 
     const videoId = video.id || video.itemId;
-    const videoUrl = video.shareUrl || `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${videoId}`;
-    const lastVideoId = await getLastVideoId(TIKTOK_USERNAME);
-
-    console.log('🔍 Latest TikTok ID:', videoId);
-    console.log('🧠 Last stored TikTok ID:', lastVideoId);
+    const videoUrl = video.shareUrl || `https://www.tiktok.com/@${username}/video/${videoId}`;
+    const lastVideoId = await getLastVideoId(username);
 
     if (!videoId || !videoUrl) {
-      console.log('⚠️ Missing video ID or URL.');
+      console.log(`⚠️ Missing video ID or URL for @${username}`);
       return;
     }
 
     if (videoId !== lastVideoId) {
-      await setLastVideoId(TIKTOK_USERNAME, videoId);
-      console.log('➡️ New TikTok:', videoUrl);
+      await setLastVideoId(username, videoId);
+      console.log(`➡️ New TikTok from @${username}: ${videoUrl}`);
 
-      await axios.post(DISCORD_WEBHOOK_URL, {
-        content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`
+      await axios.post(webhook, {
+        content: `🎥 New TikTok by @${username}:\n${videoUrl}`
       });
     } else {
-      console.log('✔️ No new TikToks.');
+      console.log(`✔️ No new TikToks for @${username}`);
     }
   } catch (err) {
-    console.error('❌ Apify or DB error:', err.message);
+    console.error(`❌ Error checking @${username}:`, err.message);
   }
 }
 
-// Run once daily at 9:00 AM
-cron.schedule('0 9 * * *', checkTikTok);
+async function checkAllAccounts() {
+  for (const account of ACCOUNTS) {
+    await checkTikTokForAccount(account);
+  }
+}
 
-// Connect DB and run once on startup
-initDatabase().then(() => checkTikTok());
+// Schedule: run every day at 9:00 AM
+cron.schedule('0 9 * * *', checkAllAccounts);
+
+// On startup
+initDatabase()
+  .then(() => checkAllAccounts())
+  .catch(err => {
+    console.error('❌ Database connection failed:', err.message);
+    process.exit(1);
+  });
