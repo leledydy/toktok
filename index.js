@@ -1,3 +1,4 @@
+import { getUserVideos } from 'tiktok-scraper';
 import axios from 'axios';
 import cron from 'node-cron';
 
@@ -8,38 +9,28 @@ let lastVideoId = null;
 
 async function checkTikTok() {
   try {
-    const res = await axios.get(`https://www.tiktok.com/@${TIKTOK_USERNAME}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0'
-      }
-    });
-
-    const matches = [...res.data.matchAll(/"id":"(\d{19,20})"/g)];
-    const videoIds = matches.map(m => m[1]);
-
-    if (!videoIds.length) {
-      console.log("No video IDs found.");
+    const posts = await getUserVideos(TIKTOK_USERNAME, { number: 1 });
+    const video = posts.collector?.[0];
+    if (!video) {
+      console.log("⚠️ No TikToks found yet.");
       return;
     }
 
-    const newestVideoId = videoIds[0];
+    const { id: videoId, webVideoUrl: videoUrl } = video;
 
-    if (newestVideoId !== lastVideoId) {
-      lastVideoId = newestVideoId;
-      const videoUrl = `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${newestVideoId}`;
-      console.log("New TikTok found:", videoUrl);
-
+    if (videoId !== lastVideoId) {
+      lastVideoId = videoId;
+      console.log("➡️ Found new TikTok:", videoUrl);
       await axios.post(DISCORD_WEBHOOK_URL, {
-        content: `📢 New TikTok from @${TIKTOK_USERNAME}:\n${videoUrl}`
+        content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`
       });
     } else {
-      console.log("No new video.");
+      console.log("✔️ No new TikTok since last check.");
     }
-
   } catch (err) {
-    console.error("Error checking TikTok:", err.message);
+    console.error("❌ Error fetching TikTok:", err.message);
   }
 }
 
-cron.schedule('*/5 * * * *', checkTikTok);
-checkTikTok(); // run immediately on start
+cron.schedule("*/5 * * * *", checkTikTok);
+checkTikTok();
