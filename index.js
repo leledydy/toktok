@@ -13,7 +13,7 @@ async function checkTikTok() {
     browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: '/usr/bin/chromium' // Required for Railway Docker
+      executablePath: '/usr/bin/chromium'
     });
 
     const page = await browser.newPage();
@@ -23,18 +23,16 @@ async function checkTikTok() {
       timeout: 60000
     });
 
-    // Optional: screenshot for debugging
-    // await page.screenshot({ path: 'tiktok.png', fullPage: true });
-
-    await page.waitForSelector('a[href*="/video/"]', { timeout: 15000 });
+    // Fallback: Wait manually to allow TikTok to fully render
+    await page.waitForTimeout(5000); // 5 seconds
 
     const videoUrl = await page.evaluate(() => {
-      const anchor = document.querySelector('a[href*="/video/"]');
-      return anchor ? anchor.href : null;
+      const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]'));
+      return anchors.length > 0 ? anchors[0].href : null;
     });
 
     if (!videoUrl) {
-      console.log('⚠️ No video links found on profile.');
+      console.log('⚠️ Still no video links found on profile after timeout.');
       return;
     }
 
@@ -62,6 +60,5 @@ async function checkTikTok() {
   }
 }
 
-// Run every 5 minutes
 cron.schedule('*/5 * * * *', checkTikTok);
 checkTikTok();
