@@ -9,7 +9,7 @@ const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch';
 
 const LAST_ID_FILE = './last.txt';
 
-// Load last video ID from file (if exists)
+// Load last video ID from file
 let lastVideoId = fs.existsSync(LAST_ID_FILE)
   ? fs.readFileSync(LAST_ID_FILE, 'utf-8').trim()
   : null;
@@ -22,7 +22,7 @@ async function checkTikTok() {
       {
         profiles: [`https://www.tiktok.com/@${TIKTOK_USERNAME}`],
         maxVideos: 1,
-        customId: `check-${now}` // prevents Apify cache
+        customId: `check-${now}`
       }
     );
 
@@ -52,3 +52,15 @@ async function checkTikTok() {
         content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`
       });
     } else {
+      console.log('✔️ No new TikToks.');
+    }
+  } catch (err) {
+    console.error('❌ Apify error:', err.message);
+  }
+}
+
+// Run once daily at 9:00 AM
+cron.schedule('0 9 * * *', checkTikTok);
+
+// Optional: run once immediately on startup
+checkTikTok();
