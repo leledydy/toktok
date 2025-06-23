@@ -1,6 +1,5 @@
 import axios from 'axios';
 import cron from 'node-cron';
-import * as cheerio from 'cheerio';
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
@@ -9,35 +8,21 @@ let lastVideoId = null;
 
 async function checkTikTok() {
   try {
-    const url = `https://www.tiktok.com/@${TIKTOK_USERNAME}`;
-    const { data: html } = await axios.get(url, {
+    const url = `https://m.tiktok.com/api/post/item_list/?username=${TIKTOK_USERNAME}&count=1`;
+    const { data } = await axios.get(url, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.google.com/',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       },
     });
 
-    const $ = cheerio.load(html);
-    const scriptTag = $('script#__NEXT_DATA__').html();
-
-    if (!scriptTag) {
-      console.log('⚠️ Unable to find TikTok data. Structure may have changed.');
+    const video = data?.itemList?.[0];
+    if (!video) {
+      console.log("⚠️ No TikTok videos found.");
       return;
     }
 
-    const json = JSON.parse(scriptTag);
-    const videos = json.props?.pageProps?.items || [];
-
-    if (!videos.length) {
-      console.log('⚠️ No TikTok videos found.');
-      return;
-    }
-
-    const video = videos[0];
-    const videoId = video.id;
+    const videoId = video.id || video.id_str || video.item_id;
     const videoUrl = `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${videoId}`;
 
     if (videoId !== lastVideoId) {
