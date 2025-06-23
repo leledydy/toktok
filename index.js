@@ -13,7 +13,7 @@ async function checkTikTok() {
     browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: '/usr/bin/chromium' // required for Docker on Railway
+      executablePath: '/usr/bin/chromium' // Required for Railway Docker
     });
 
     const page = await browser.newPage();
@@ -23,10 +23,9 @@ async function checkTikTok() {
       timeout: 60000
     });
 
-    // Optional: Take screenshot for debugging
-    // await page.screenshot({ path: 'tiktok-profile.png', fullPage: true });
+    // Optional: screenshot for debugging
+    // await page.screenshot({ path: 'tiktok.png', fullPage: true });
 
-    // Wait for the first video link to be available
     await page.waitForSelector('a[href*="/video/"]', { timeout: 15000 });
 
     const videoUrl = await page.evaluate(() => {
@@ -44,3 +43,25 @@ async function checkTikTok() {
     if (!videoId) {
       console.log('⚠️ Failed to extract video ID.');
       return;
+    }
+
+    if (videoId !== lastVideoId) {
+      lastVideoId = videoId;
+      console.log('➡️ New TikTok:', videoUrl);
+
+      await axios.post(DISCORD_WEBHOOK_URL, {
+        content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`
+      });
+    } else {
+      console.log('✔️ No new TikToks.');
+    }
+  } catch (err) {
+    console.error('❌ Error fetching TikTok:', err.message);
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+// Run every 5 minutes
+cron.schedule('*/5 * * * *', checkTikTok);
+checkTikTok();
