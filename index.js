@@ -4,13 +4,18 @@ import pg from 'pg';
 
 const { Client } = pg;
 
+// ENV VARIABLES
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_TASK_ID = process.env.APIFY_TASK_ID; // Format: yourusername~taskname
+const APIFY_TASK_ID = process.env.APIFY_TASK_ID;
 const DATABASE_URL = process.env.DATABASE_URL;
 
+// Optional fallback webhook for unmapped usernames (optional)
+const FALLBACK_DISCORD_WEBHOOK = process.env.FALLBACK_DISCORD_WEBHOOK || null;
+
+// Webhook map (add more as needed)
 const USER_WEBHOOK_MAP = {
   [process.env.TIKTOK_USERNAME_1]: process.env.DISCORD_WEBHOOK_URL_1,
-  [process.env.TIKTOK_USERNAME_2]: process.env.DISCORD_WEBHOOK_URL_2
+  [process.env.TIKTOK_USERNAME_2]: process.env.DISCORD_WEBHOOK_URL_2,
 };
 
 const db = new Client({ connectionString: DATABASE_URL });
@@ -59,10 +64,10 @@ async function checkAllAccounts() {
       const username = video.authorMeta?.name || video.authorName;
       const videoId = video.id || video.itemId;
       const videoUrl = video.shareUrl || `https://www.tiktok.com/@${username}/video/${videoId}`;
-      const webhook = USER_WEBHOOK_MAP[username];
+      const webhook = USER_WEBHOOK_MAP[username] || FALLBACK_DISCORD_WEBHOOK;
 
       if (!username || !videoId || !videoUrl) {
-        console.log(`⚠️ Skipping invalid video data`);
+        console.log('⚠️ Skipping invalid video data.');
         continue;
       }
 
@@ -89,10 +94,10 @@ async function checkAllAccounts() {
   }
 }
 
-// Schedule daily at 9:00 AM
+// Schedule: every day at 9:00 AM
 cron.schedule('0 9 * * *', checkAllAccounts);
 
-// Run immediately on container start
+// Run on container startup
 initDatabase()
   .then(() => checkAllAccounts())
   .catch(err => {
