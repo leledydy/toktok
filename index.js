@@ -4,14 +4,13 @@ import cron from 'node-cron';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch';
+const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch'; // Your custom Apify actor ID
 
 let lastVideoId = null;
 
 async function checkTikTok() {
   try {
-    // Start the actor run
-    const startRun = await axios.post(
+    const response = await axios.post(
       `https://api.apify.com/v2/actor-tasks/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
       {
         username: TIKTOK_USERNAME,
@@ -19,7 +18,7 @@ async function checkTikTok() {
       }
     );
 
-    const video = startRun.data?.[0];
+    const video = response.data?.[0];
     if (!video) {
       console.log('⚠️ No videos returned from Apify.');
       return;
@@ -31,6 +30,7 @@ async function checkTikTok() {
     if (videoId !== lastVideoId) {
       lastVideoId = videoId;
       console.log('➡️ New TikTok:', videoUrl);
+
       await axios.post(DISCORD_WEBHOOK_URL, {
         content: `🎥 New TikTok by @${TIKTOK_USERNAME}:\n${videoUrl}`
       });
@@ -42,5 +42,6 @@ async function checkTikTok() {
   }
 }
 
+// Run every 5 minutes
 cron.schedule('*/5 * * * *', checkTikTok);
 checkTikTok();
