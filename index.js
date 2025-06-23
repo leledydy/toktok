@@ -1,4 +1,5 @@
-import { getUserVideos } from 'tiktok-scraper';
+import pkg from 'tiktok-scraper';
+const { getUserVideos } = pkg;
 import axios from 'axios';
 import cron from 'node-cron';
 
