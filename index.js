@@ -4,16 +4,16 @@ import cron from 'node-cron';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch'; // Your custom Apify actor ID
+const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch'; // ✅ ACTOR ID, not a task
 
 let lastVideoId = null;
 
 async function checkTikTok() {
   try {
     const response = await axios.post(
-      `https://api.apify.com/v2/actor-tasks/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
       {
-        username: TIKTOK_USERNAME,
+        profiles: [`https://www.tiktok.com/@${TIKTOK_USERNAME}`],
         maxVideos: 1
       }
     );
