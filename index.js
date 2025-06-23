@@ -4,7 +4,7 @@ import cron from 'node-cron';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = 'Lzit14Yy3a6cCHgpV'; // Your custom Apify actor ID
+const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch'; // Your custom Apify actor ID
 
 let lastVideoId = null;
 
