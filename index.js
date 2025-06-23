@@ -23,8 +23,8 @@ async function checkTikTok() {
       timeout: 60000
     });
 
-    // Fallback: Wait manually to allow TikTok to fully render
-    await page.waitForTimeout(5000); // 5 seconds
+    // Manual wait fallback (cross-version compatible)
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     const videoUrl = await page.evaluate(() => {
       const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]'));
