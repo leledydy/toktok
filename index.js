@@ -1,5 +1,5 @@
-const axios = require('axios');
-const cron = require('node-cron');
+import axios from 'axios';
+import cron from 'node-cron';
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME;
@@ -10,7 +10,7 @@ async function checkTikTok() {
   try {
     const res = await axios.get(`https://www.tiktok.com/@${TIKTOK_USERNAME}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0' // avoid access denied
+        'User-Agent': 'Mozilla/5.0'
       }
     });
 
@@ -42,4 +42,4 @@ async function checkTikTok() {
 }
 
 cron.schedule('*/5 * * * *', checkTikTok);
-checkTikTok(); // immediate check on start
+checkTikTok(); // run immediately on start
