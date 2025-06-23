@@ -5,19 +5,13 @@ import pg from 'pg';
 const { Client } = pg;
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const APIFY_ACTOR_ID = 'GdWCkxBtKWOsKjdch';
+const APIFY_TASK_ID = process.env.APIFY_TASK_ID; // Format: yourusername~taskname
 const DATABASE_URL = process.env.DATABASE_URL;
 
-const ACCOUNTS = [
-  {
-    username: process.env.TIKTOK_USERNAME_1,
-    webhook: process.env.DISCORD_WEBHOOK_URL_1
-  },
-  {
-    username: process.env.TIKTOK_USERNAME_2,
-    webhook: process.env.DISCORD_WEBHOOK_URL_2
-  }
-];
+const USER_WEBHOOK_MAP = {
+  [process.env.TIKTOK_USERNAME_1]: process.env.DISCORD_WEBHOOK_URL_1,
+  [process.env.TIKTOK_USERNAME_2]: process.env.DISCORD_WEBHOOK_URL_2
+};
 
 const db = new Client({ connectionString: DATABASE_URL });
 
@@ -49,58 +43,56 @@ async function setLastVideoId(username, videoId) {
   );
 }
 
-async function checkTikTokForAccount({ username, webhook }) {
+async function checkAllAccounts() {
   try {
-    const now = Date.now();
     const response = await axios.post(
-      `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
-      {
-        profiles: [`https://www.tiktok.com/@${username}`],
-        maxVideos: 1,
-        customId: `check-${username}-${now}`
-      }
+      `https://api.apify.com/v2/actor-tasks/${APIFY_TASK_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`
     );
 
-    const video = response.data?.[0];
-    if (!video) {
-      console.log(`⚠️ No videos found for @${username}`);
+    const videos = response.data;
+    if (!Array.isArray(videos) || videos.length === 0) {
+      console.log('⚠️ No videos returned from Apify task.');
       return;
     }
 
-    const videoId = video.id || video.itemId;
-    const videoUrl = video.shareUrl || `https://www.tiktok.com/@${username}/video/${videoId}`;
-    const lastVideoId = await getLastVideoId(username);
+    for (const video of videos) {
+      const username = video.authorMeta?.name || video.authorName;
+      const videoId = video.id || video.itemId;
+      const videoUrl = video.shareUrl || `https://www.tiktok.com/@${username}/video/${videoId}`;
+      const webhook = USER_WEBHOOK_MAP[username];
 
-    if (!videoId || !videoUrl) {
-      console.log(`⚠️ Missing video ID or URL for @${username}`);
-      return;
-    }
+      if (!username || !videoId || !videoUrl) {
+        console.log(`⚠️ Skipping invalid video data`);
+        continue;
+      }
 
-    if (videoId !== lastVideoId) {
-      await setLastVideoId(username, videoId);
-      console.log(`➡️ New TikTok from @${username}: ${videoUrl}`);
+      if (!webhook) {
+        console.log(`⚠️ No webhook configured for @${username}`);
+        continue;
+      }
 
-      await axios.post(webhook, {
-        content: `🎥 New TikTok by @${username}:\n${videoUrl}`
-      });
-    } else {
-      console.log(`✔️ No new TikToks for @${username}`);
+      const lastVideoId = await getLastVideoId(username);
+
+      if (videoId !== lastVideoId) {
+        await setLastVideoId(username, videoId);
+        console.log(`➡️ New TikTok from @${username}: ${videoUrl}`);
+
+        await axios.post(webhook, {
+          content: `🎥 New TikTok by @${username}:\n${videoUrl}`
+        });
+      } else {
+        console.log(`✔️ No new TikToks for @${username}`);
+      }
     }
   } catch (err) {
-    console.error(`❌ Error checking @${username}:`, err.message);
+    console.error('❌ Apify task error:', err.message);
   }
 }
 
-async function checkAllAccounts() {
-  for (const account of ACCOUNTS) {
-    await checkTikTokForAccount(account);
-  }
-}
-
-// Schedule: run every day at 9:00 AM
+// Schedule daily at 9:00 AM
 cron.schedule('0 9 * * *', checkAllAccounts);
 
-// On startup
+// Run immediately on container start
 initDatabase()
   .then(() => checkAllAccounts())
   .catch(err => {
