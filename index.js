@@ -17,27 +17,36 @@ async function checkTikTok() {
     });
 
     const page = await browser.newPage();
-    const url = `https://www.tiktok.com/@${TIKTOK_USERNAME}`;
-    await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 60000
-    });
 
-    // Manual wait fallback (cross-version compatible)
+    // Mimic a real browser
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+    );
+    await page.setViewport({ width: 1280, height: 800 });
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+
+    const url = `https://www.tiktok.com/@${TIKTOK_USERNAME}`;
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+    // Scroll down to trigger video loading
+    await page.evaluate(() => window.scrollBy(0, 1000));
+
+    // Wait for lazy-loaded content
     await new Promise(resolve => setTimeout(resolve, 5000));
 
+    // Try to find a video link
     const videoUrl = await page.evaluate(() => {
       const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]'));
       return anchors.length > 0 ? anchors[0].href : null;
     });
 
     if (!videoUrl) {
-      console.log('⚠️ Still no video links found on profile after timeout.');
+      console.log('⚠️ Still no video links found on profile after scroll/wait.');
       return;
     }
 
     const videoId = videoUrl.split('/video/')[1]?.split('?')[0];
-
     if (!videoId) {
       console.log('⚠️ Failed to extract video ID.');
       return;
